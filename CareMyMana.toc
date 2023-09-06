@@ -1,0 +1,8 @@
+## Interface: 30300
+## DefaultState: disabled
+## Title: CareMyMana
+## Version: 1.00
+## Notes: Displays Mana Pots/Runes available when you're missing mana
+## SavedVariablesPerCharacter: CareMyManaDB
+
+CareMyMana.lua

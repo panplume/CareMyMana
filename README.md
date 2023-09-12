@@ -27,5 +27,3 @@ Editing the source is required to:
 ```
 /cmm unlock
 ```
-
-then cast some spells to trigger the icon to display and move it (displaying a default icon on unlock is a planned feature, for the futur, one day, maybe, please).

@@ -86,6 +86,48 @@ function CareMyMana:OnEvent(event, ...)
 end
 CareMyMana:SetScript("OnEvent", CareMyMana.OnEvent)
 
+
+local function displayPotion(idx)
+  local questionTexture = "Interface\\Icons\\INV_Misc_QuestionMark"
+  --don't display if a major mana regen buff is running (unless unlocked)
+  if not CareMyMana.unlock and waitBigRegen and waitBigRegen > GetTime() then
+    CareMyMana:Hide()
+    return
+  end
+  --change icon
+  if idx == nil then --no potion, display unlocked
+    CareMyMana:SetNormalTexture(questionTexture)
+    CareMyMana.nameText:SetText("Place Me!")
+  elseif CareMyMana.idx ~= idx then
+    CareMyMana.idx = idx
+    local id = Potions[idx][1]
+    local itemTexture = select(10, GetItemInfo(id)) or questionTexture
+    CareMyMana:SetNormalTexture(itemTexture)
+    local name = potionsInfo[id]
+    CareMyMana.nameText:SetText(name or "")
+  end
+
+  --update cooldown text
+  if idx then
+    local timeLeft = Potions[idx][5] - GetTime()
+    if timeLeft < 0 then timeLeft = 0 end
+    if timeLeft > 0 then
+      local minutes = floor(timeLeft / 60)
+      local seconds = timeLeft % 60
+      if minutes > 0 then
+	CareMyMana.cdText:SetText(string.format("%d:%02d", minutes, seconds))
+      else
+	CareMyMana.cdText:SetText(floor(seconds))
+      end
+    else
+      CareMyMana.cdText:SetText("")
+    end
+  end
+
+  CareMyMana:Show()
+end
+
+
 -- Handle mouse dragging
 function CareMyMana:StopMoving()
   self:StopMovingOrSizing()
@@ -96,6 +138,9 @@ CareMyMana:SetScript("OnDragStop", CareMyMana.StopMoving)
 CareMyMana:RegisterForDrag("LeftButton")
 
 local function unlockFrame(b)
+  CareMyMana.unlock = b --always display an icon in unlock mode
+  --display last potion or quesionMark
+  displayPotion(CareMyMana.idx or nil)
   CareMyMana:SetMovable(b)
   CareMyMana:EnableMouse(b)
 end
@@ -165,41 +210,6 @@ function updateCooldowns()
 end
 
 
-local function displayPotion(idx)
-  --don't display if a major mana regen buff is running
-  if waitBigRegen and waitBigRegen > GetTime() then
-    CareMyMana:Hide()
-    return
-  end
-  --change icon
-  if CareMyMana.idx ~= idx then
-    CareMyMana.idx = idx
-    local id = Potions[idx][1]
-    local itemTexture = select(10, GetItemInfo(id)) or "Interface\\Icons\\INV_Misc_QuestionMark"
-    CareMyMana:SetNormalTexture(itemTexture)
-    local name = potionsInfo[id]
-    CareMyMana.nameText:SetText(name or "")
-  end
-
-  --update cooldown text
-  local timeLeft = Potions[idx][5] - GetTime()
-  if timeLeft < 0 then timeLeft = 0 end
-  if timeLeft > 0 then
-    local minutes = floor(timeLeft / 60)
-    local seconds = timeLeft % 60
-    if minutes > 0 then
-      CareMyMana.cdText:SetText(string.format("%d:%02d", minutes, seconds))
-    else
-      CareMyMana.cdText:SetText(floor(seconds))
-    end
-  else
-    CareMyMana.cdText:SetText("")
-  end    
-
-  CareMyMana:Show()
-end
-
-
 function CareMyMana:UNIT_MANA(unitId)
   if unitId ~= "player" or not manaUser then return end
   local antiSpam = 30 --wait 30s between crying about mana (TODO: make this an option)
@@ -235,6 +245,8 @@ function CareMyMana:UNIT_MANA(unitId)
   --no pots found, display best one on cooldown (if it exist)
   if idxCooldown then
     displayPotion(idxCooldown)
+  elseif CareMyMana.unlock then
+    displayPotion(nil)
   else
     CareMyMana:Hide() --nothing to show
   end
@@ -260,7 +272,11 @@ function CareMyMana:ADDON_LOADED(arg1)
     CareMyManaDB = _G.CareMyManaDB
   end
   self.BAG_UPDATE() --scan consumes
-  CareMyMana:SetPoint(CareMyManaDB.relativePoint, CareMyManaDB.xOfs, CareMyManaDB.yOfs)
+  if CareMyManaDB.relativePoint and CareMyManaDB.xOfs and CareMyManaDB.yOfs then
+    CareMyMana:SetPoint(CareMyManaDB.relativePoint, CareMyManaDB.xOfs, CareMyManaDB.yOfs)
+  else
+    CareMyMana:SetPoint("CENTER")
+  end
 end
 CareMyMana:RegisterEvent("ADDON_LOADED")
 
@@ -284,7 +300,11 @@ function CareMyMana:UNIT_AURA(unitId) -- fired when a (de)buff is gained/lost
       if expirationTime > (waitBigRegen or 0) then
 	waitBigRegen = expirationTime
 	log(L.." hides for "..floor(waitBigRegen - GetTime()).. "s")
-	CareMyMana:Hide()
+	if CareMyMana.unlock then
+	  displayPotion(nil)
+	else
+	  CareMyMana:Hide()
+	end
       end
     end
   end
@@ -305,7 +325,11 @@ function CareMyMana:COMBAT_LOG_EVENT_UNFILTERED(...)
 	if expirationTime > (waitBigRegen or 0) then
 	  waitBigRegen = expirationTime
 	  log(L.." hides for "..floor(waitBigRegen - GetTime()).. "s")
-	  CareMyMana:Hide()
+	  if CareMyMana.unlock then
+	    displayPotion(nil)
+	  else
+	    CareMyMana:Hide()
+	  end
 	  return
 	end
       end

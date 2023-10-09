@@ -147,10 +147,17 @@ end
 
 -----------------------------------------------------------------------------
 
+local lastBagUpdate = 0
 
 function CareMyMana:BAG_UPDATE(arg1)
   --arg1 = bag number triggering event
   --scan all bags to detect gone consumes
+
+  --prevent lag on event spam
+  local timeNow = GetTime()
+  if math.abs(timeNow - lastBagUpdate) < 0.1 then return end
+  lastBagUpdate = timeNow
+
   consumeList = {}
   local now = GetTime()
   for k, v in pairs(Potions) do
